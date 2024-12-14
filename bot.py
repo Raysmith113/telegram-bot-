@@ -104,11 +104,11 @@ async def main():
         write_credentials(api_id, api_hash, phone_number)
 
     forwarder = TelegramForwarder(api_id, api_hash, phone_number)
-    choice = "2"
-    source_chat_id = -1002022757177  # Sostituisci con l'ID corretto o l'username del gruppo
+    choice = "1"
+    source_chat_id = -1002086003521  # Sostituisci con l'ID corretto o l'username del gruppo
     destination_chat_id = -1002156987879  # Sostituisci con l'ID corretto o l'username del gruppo
     sniper_chat_id = 6661880210  # sniper tg bot
-    quote_amount = 0.02 
+    quote_amount = 0.0046
 
     if choice == "1":
         await forwarder.list_chats()
