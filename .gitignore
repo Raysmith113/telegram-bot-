@@ -1,0 +1,21 @@
+# Session files
+*.session*
+
+chats_of*.txt
+
+# Credentials
+credentials.txt
+config.ini
+config.py
+
+# Cache files
+__pycache__/
+*.pyc
+
+# IDE-specific files
+.vscode/
+.idea/
+
+# System-specific files
+.DS_Store
+Thumbs.db
