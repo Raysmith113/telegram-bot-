@@ -21,8 +21,8 @@ You can specify one or more keywords that, if found in a message, trigger the fo
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/redianmarku/Telegram-Autoforwarder.git
-   cd Telegram-Autoforwarder
+   git clone https://github.com/milky-way-labs/telegram-autoforwarder.git
+   cd telegram-autoforwarder
    ```
 
 2. Install the required dependencies:
@@ -33,13 +33,12 @@ You can specify one or more keywords that, if found in a message, trigger the fo
 
 3. Configure the script:
 
-   - Open `TelegramForwarder.py` file and provide your Telegram API ID, API hash, and phone number in the appropriate variables.
-   - Modify other settings as needed directly in the script.
+   - TODO
 
 4. Run the script:
 
    ```bash
-   python TelegramForwarder.py
+   python bot.py
    ```
 
 5. Choose an option:
