@@ -1,4 +1,5 @@
 import asyncio
+import os
 import re
 
 from events_manager import emit
@@ -8,25 +9,22 @@ from telethon.tl.types import PeerChannel
 
 from src.events import TokenAnalyzedEvent
 
-
 class TelegramForwarder:
-    def __init__(self, api_id, api_hash, phone_number):
-        self.api_id = api_id
-        self.api_hash = api_hash
-        self.phone_number = phone_number
-        self.client_list_chats = TelegramClient('session_list_chats_' + phone_number, api_id, api_hash)
-        self.client_forward_messages = TelegramClient('session_forward_messages_' + phone_number, api_id, api_hash)
-        self.analyzer_chat_id = -1002382605991
-        self.bonkbot_caller_chat_id = -1002156987879
+    def __init__(self):
+        self.api_id = os.getenv('TELEGRAM_API_ID')
+        self.api_hash = os.getenv('TELEGRAM_API_HASH')
+        self.phone_number = os.getenv('TELEGRAM_PHONE_NUMBER')
+
+        self.client = TelegramClient('storage/session' + self.phone_number, self.api_id, self.api_hash)
 
     async def list_chats(self):
-        await self.client_list_chats.connect()
+        await self.client.connect()
 
-        if not await self.client_list_chats.is_user_authorized():
-            await self.client_list_chats.send_code_request(self.phone_number)
-            await self.client_list_chats.sign_in(self.phone_number, input('Enter the code: '))
+        if not await self.client.is_user_authorized():
+            await self.client.send_code_request(self.phone_number)
+            await self.client.sign_in(self.phone_number, input('Enter the code: '))
 
-        dialogs = await self.client_list_chats.get_dialogs()
+        dialogs = await self.client.get_dialogs()
         with open(f"chats_of_{self.phone_number}.txt", "w", encoding="utf-8") as chats_file:
             for dialog in dialogs:
                 print(f"Chat ID: {dialog.id}, Title: {dialog.title}")
@@ -34,32 +32,35 @@ class TelegramForwarder:
 
         print("List of groups printed successfully!")
 
-    async def handle_genesis_gem_message(self):
-        await self.client_forward_messages.connect()
+    async def send_message(self, chat_id, message):
+        await self.client.send_message(chat_id, message)
 
-        if not await self.client_forward_messages.is_user_authorized():
-            await self.client_forward_messages.send_code_request(self.phone_number)
-            await self.client_forward_messages.sign_in(self.phone_number, input('Enter the code: '))
+    async def handle_genesis_gem_message(self, analyzer_chat_id):
+        await self.client.connect()
+
+        if not await self.client.is_user_authorized():
+            await self.client.send_code_request(self.phone_number)
+            await self.client.sign_in(self.phone_number, input('Enter the code: '))
 
         genesis_gem_chat_id = -1002156987879  # fixme: -1002124901271
 
         # Tenta di ottenere l'entità del gruppo sorgente
         try:
-            source_entity = await self.client_forward_messages.get_entity(PeerChannel(genesis_gem_chat_id))
+            source_entity = await self.client.get_entity(PeerChannel(genesis_gem_chat_id))
         except ValueError as e:
             print(f"Error retrieving entity for genesis gem: {e}")
             return
 
         # Ottiene l'ultimo messaggio
         try:
-            last_message_id = (await self.client_forward_messages.get_messages(source_entity, limit=1))[0].id
+            last_message_id = (await self.client.get_messages(source_entity, limit=1))[0].id
         except (RpcCallFailError, PeerIdInvalidError) as e:
             print(f"Error retrieving messages: {e}")
             return
 
         while True:
             try:
-                messages = await self.client_forward_messages.get_messages(source_entity, min_id=last_message_id,
+                messages = await self.client.get_messages(source_entity, min_id=last_message_id,
                                                                            limit=None)
             except (RpcCallFailError, PeerIdInvalidError) as e:
                 print(f"Error retrieving messages: {e}")
@@ -90,8 +91,7 @@ class TelegramForwarder:
                     for contract_address in self.extract_contract_addresses(message.text):
                         print(f"Contract address: {contract_address}")
 
-                        await self.client_forward_messages.send_message(self.analyzer_chat_id,
-                                                                        f"/bundle {contract_address}")
+                        await self.client.send_message(analyzer_chat_id, f"/bundle {contract_address}")
 
                         print("Message forwarded")
 
@@ -111,32 +111,32 @@ class TelegramForwarder:
 
         return result
 
-    async def handle_bonkbot_message(self):
-        await self.client_forward_messages.connect()
+    async def handle_bonkbot_message(self, caller_chat_id):
+        await self.client.connect()
 
-        if not await self.client_forward_messages.is_user_authorized():
-            await self.client_forward_messages.send_code_request(self.phone_number)
-            await self.client_forward_messages.sign_in(self.phone_number, input('Enter the code: '))
+        if not await self.client.is_user_authorized():
+            await self.client.send_code_request(self.phone_number)
+            await self.client.sign_in(self.phone_number, input('Enter the code: '))
 
         bonkbot_chat_id = -1002086003521  # Sostituisci con l'ID corretto o l'username del gruppo
 
         # Tenta di ottenere l'entità del gruppo sorgente
         try:
-            source_entity = await self.client_forward_messages.get_entity(PeerChannel(bonkbot_chat_id))
+            source_entity = await self.client.get_entity(PeerChannel(bonkbot_chat_id))
         except ValueError as e:
             print(f"Error retrieving entity for bonkbot")
             return
 
         # Ottiene l'ultimo messaggio
         try:
-            last_message_id = (await self.client_forward_messages.get_messages(source_entity, limit=1))[0].id
+            last_message_id = (await self.client.get_messages(source_entity, limit=1))[0].id
         except (RpcCallFailError, PeerIdInvalidError) as e:
             print(f"Error retrieving messages: {e}")
             return
 
         while True:
             try:
-                messages = await self.client_forward_messages.get_messages(source_entity, min_id=last_message_id,
+                messages = await self.client.get_messages(source_entity, min_id=last_message_id,
                                                                            limit=None)
             except (RpcCallFailError, PeerIdInvalidError) as e:
                 print(f"Error retrieving messages: {e}")
@@ -149,7 +149,7 @@ class TelegramForwarder:
                 if message.text and '**🔥 BURNED LP 🔥**' in message.text and '**Open time:** `in' in message.text:
                     print(f"Message contains the phrase: {message.text}")
 
-                    await self.client_forward_messages.send_message(self.bonkbot_caller_chat_id, message.text)
+                    await self.client.send_message(caller_chat_id, message.text)
                     print("Message forwarded")
 
                     defi_solana_sniper_chat_id = 6661880210  # sniper tg bot
@@ -158,42 +158,38 @@ class TelegramForwarder:
                     ca = message.text.split("**Mint:** `")[1].split("`")[0]
                     snipe_message = f"/snp {ca} {quote_amount}"
                     print(snipe_message)
-                    await self.client_forward_messages.send_message(defi_solana_sniper_chat_id, snipe_message)
+                    await self.client.send_message(defi_solana_sniper_chat_id, snipe_message)
                     print("Snipe set")
 
                 last_message_id = max(last_message_id, message.id)
 
             await asyncio.sleep(5)
 
-    async def interact_with_analyzer(self, contract_address):
-        # Invia l'indirizzo del contratto al bot
-        await self.client_forward_messages.send_message(self.analyzer_chat_id, contract_address)
+    async def handle_analyzer_message(self, analyzer_chat_id):
+        await self.client.connect()
 
-    async def handle_analyzer_message(self):
-        await self.client_forward_messages.connect()
+        if not await self.client.is_user_authorized():
+            await self.client.send_code_request(self.phone_number)
+            await self.client.sign_in(self.phone_number, input('Enter the code: '))
 
-        if not await self.client_forward_messages.is_user_authorized():
-            await self.client_forward_messages.send_code_request(self.phone_number)
-            await self.client_forward_messages.sign_in(self.phone_number, input('Enter the code: '))
-
-        analyzer_peer = PeerChannel(self.analyzer_chat_id)
+        analyzer_peer = PeerChannel(analyzer_chat_id)
 
         # Tenta di ottenere l'entità del gruppo sorgente
         try:
-            source_entity = await self.client_forward_messages.get_entity(analyzer_peer)
+            source_entity = await self.client.get_entity(analyzer_peer)
         except ValueError as e:
             print(f"Error retrieving entity for bonkbot")
             return
 
         # Ottiene l'ultimo messaggio
         try:
-            last_message_id = (await self.client_forward_messages.get_messages(source_entity, limit=1))[0].id
+            last_message_id = (await self.client.get_messages(source_entity, limit=1))[0].id
         except (RpcCallFailError, PeerIdInvalidError) as e:
             print(f"Error retrieving messages: {e}")
             return
         while True:
             try:
-                messages = await self.client_forward_messages.get_messages(source_entity, min_id=last_message_id,
+                messages = await self.client.get_messages(source_entity, min_id=last_message_id,
                                                                            limit=None)
             except (RpcCallFailError, PeerIdInvalidError) as e:
                 print(f"Error retrieving messages: {e}")
@@ -224,7 +220,7 @@ class TelegramForwarder:
                 print(f"{sender.username}: analyzer message received")
 
                 for contract_address in self.extract_contract_addresses(message.text):
-                    emit(TokenAnalyzedEvent(contract_address, sender.username, message.text))
+                    emit(TokenAnalyzedEvent(self, contract_address, sender.username, message.text))
                     break  # fixme
 
                 if not message.buttons:
