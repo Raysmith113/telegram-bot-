@@ -45,6 +45,14 @@ You can specify one or more keywords that, if found in a message, trigger the fo
    - List Chats: View a list of all chats you're a part of and select the ones to use for message forwarding.
    - Forward Messages: Enter the source chat ID, destination chat ID, and keywords to start forwarding messages.
 
+## OpenAI
+
+In order to use openai score evaluation functionality, you need to provide your api key.
+
+```shell
+OPENAI_API_KEY="your_api_key"
+```
+
 ## Notes
 
 - Remember to keep your API credentials secure and do not share them publicly.
