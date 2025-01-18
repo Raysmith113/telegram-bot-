@@ -26,7 +26,7 @@ class TelegramForwarder:
             await self.client.sign_in(self.phone_number, input('Enter the code: '))
 
         dialogs = await self.client.get_dialogs()
-        with open(f"chats_of_{self.phone_number}.txt", "w", encoding="utf-8") as chats_file:
+        with open(f"storage/chats_of_{self.phone_number}.txt", "w", encoding="utf-8") as chats_file:
             for dialog in dialogs:
                 print(f"Chat ID: {dialog.id}, Title: {dialog.title}")
                 chats_file.write(f"Chat ID: {dialog.id}, Title: {dialog.title} \n")
