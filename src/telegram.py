@@ -9,6 +9,7 @@ from telethon.tl.types import PeerChannel
 
 from src.events import TokenAnalyzedEvent
 
+
 class TelegramForwarder:
     def __init__(self):
         self.api_id = os.getenv('TELEGRAM_API_ID')
@@ -35,20 +36,18 @@ class TelegramForwarder:
     async def send_message(self, chat_id, message):
         await self.client.send_message(chat_id, message)
 
-    async def handle_genesis_gem_message(self, analyzer_chat_id):
+    async def handle_token_source_message(self, analyzer_chat_id, source_chat_id, chat_id_filter=None):
         await self.client.connect()
 
         if not await self.client.is_user_authorized():
             await self.client.send_code_request(self.phone_number)
             await self.client.sign_in(self.phone_number, input('Enter the code: '))
 
-        genesis_gem_chat_id = -1002156987879  # fixme: -1002124901271
-
         # Tenta di ottenere l'entità del gruppo sorgente
         try:
-            source_entity = await self.client.get_entity(PeerChannel(genesis_gem_chat_id))
+            source_entity = await self.client.get_entity(PeerChannel(source_chat_id))
         except ValueError as e:
-            print(f"Error retrieving entity for genesis gem: {e}")
+            print(f"Error retrieving entities for chat_id {source_chat_id}: {e}")
             return
 
         # Ottiene l'ultimo messaggio
@@ -61,7 +60,7 @@ class TelegramForwarder:
         while True:
             try:
                 messages = await self.client.get_messages(source_entity, min_id=last_message_id,
-                                                                           limit=None)
+                                                          limit=None)
             except (RpcCallFailError, PeerIdInvalidError) as e:
                 print(f"Error retrieving messages: {e}")
                 break
@@ -70,44 +69,33 @@ class TelegramForwarder:
                 if message.id == last_message_id:
                     break
 
-                hot_usernames = [
-                    'bitcoinbilliam'
-                    'Oppkun',
-                    'dave3xx',
-                    'Vsanek3',
-                    'tuanqu',
-                    'CryptMonkk',
-                    'Crypzypotela',
-                    'ultrastarlife',
-                    'dennozzz',  # fixme
-                    'albertogferrario',  # fixme
-                ]
+                last_message_id = max(last_message_id, message.id)
 
                 sender = await message.get_sender()
+                if sender and chat_id_filter and sender.username not in chat_id_filter:
+                    continue
 
-                if sender and sender.username in hot_usernames:
-                    print(f"Message sent from: {sender.username}")
+                print(f"Message sent from: {sender.username}")
 
-                    for contract_address in self.extract_contract_addresses(message.text):
-                        print(f"Contract address: {contract_address}")
+                for contract_address in self.extract_contract_addresses(message.text):
+                    print(f"Contract address: {contract_address}")
 
-                        await self.client.send_message(analyzer_chat_id, f"/bundle {contract_address}")
+                    await self.client.send_message(analyzer_chat_id, f"/bundle {contract_address}")
 
-                        print("Message forwarded")
+                    print("Message forwarded")
 
-                        await asyncio.sleep(5)
-
-                last_message_id = max(last_message_id, message.id)
+                    await asyncio.sleep(5)
 
             await asyncio.sleep(5)
 
     @staticmethod
     def extract_contract_addresses(message):
-        # Regex per intercettare indirizzi di contratti (Ethereum ad esempio)
         contract_address_regex = r'\b[a-zA-Z0-9]{32,44}\b'
         result = set()
 
         result.update(re.findall(contract_address_regex, message))
+
+        # fixme: verificare che si tratta di un token (richiesta API?)
 
         return result
 
@@ -137,7 +125,7 @@ class TelegramForwarder:
         while True:
             try:
                 messages = await self.client.get_messages(source_entity, min_id=last_message_id,
-                                                                           limit=None)
+                                                          limit=None)
             except (RpcCallFailError, PeerIdInvalidError) as e:
                 print(f"Error retrieving messages: {e}")
                 break
@@ -172,11 +160,9 @@ class TelegramForwarder:
             await self.client.send_code_request(self.phone_number)
             await self.client.sign_in(self.phone_number, input('Enter the code: '))
 
-        analyzer_peer = PeerChannel(analyzer_chat_id)
-
         # Tenta di ottenere l'entità del gruppo sorgente
         try:
-            source_entity = await self.client.get_entity(analyzer_peer)
+            source_entity = await self.client.get_entity(PeerChannel(analyzer_chat_id))
         except ValueError as e:
             print(f"Error retrieving entity for bonkbot")
             return
@@ -190,7 +176,7 @@ class TelegramForwarder:
         while True:
             try:
                 messages = await self.client.get_messages(source_entity, min_id=last_message_id,
-                                                                           limit=None)
+                                                          limit=None)
             except (RpcCallFailError, PeerIdInvalidError) as e:
                 print(f"Error retrieving messages: {e}")
                 break
@@ -221,7 +207,6 @@ class TelegramForwarder:
 
                 for contract_address in self.extract_contract_addresses(message.text):
                     emit(TokenAnalyzedEvent(self, contract_address, sender.username, message.text))
-                    break  # fixme
 
                 if not message.buttons:
                     continue

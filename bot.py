@@ -35,10 +35,10 @@ async def save_token_data(event: TokenAnalyzedEvent):
 
     get_collection(messages_collection_name).insert_one(
         {
-                "message": event.analyzer_message,
-                "username": event.analyzer_username,
-                "contract_address": event.contract_address,
-                "created_at": datetime.now()
+            "message": event.analyzer_message,
+            "username": event.analyzer_username,
+            "contract_address": event.contract_address,
+            "created_at": datetime.now()
         },
     )
 
@@ -85,7 +85,17 @@ async def main():
     elif choice == "2":
         tasks = [
             # create_task(forwarder.handle_bonkbot_message(caller_chat_id))
-            create_task(forwarder.handle_genesis_gem_message(analyzer_chat_id)),
+            # create_task(forwarder.handle_token_source_message(analyzer_chat_id, -1002124901271, [
+            #     'bitcoinbilliam'
+            #     'Oppkun',
+            #     'dave3xx',
+            #     'Vsanek3',
+            #     'tuanqu',
+            #     'CryptMonkk',
+            #     'Crypzypotela',
+            #     'ultrastarlife',
+            # ])),  # genesis gem
+            create_task(forwarder.handle_token_source_message(analyzer_chat_id, -1002433791139)),  # analyzer solo
             create_task(forwarder.handle_analyzer_message(analyzer_chat_id)),
         ]
 
