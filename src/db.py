@@ -5,6 +5,7 @@ from pymongo import MongoClient
 
 tokens_collection_name = 'tokens'
 messages_collection_name = 'messages'
+scores_collection_name = 'scores'
 client = MongoClient(os.getenv('MONGO_URL'))
 
 

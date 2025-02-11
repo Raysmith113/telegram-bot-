@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from events_manager import on
 
 from src.ai import rank_token
-from src.db import get_collection, messages_collection_name, tokens_collection_name
+from src.db import get_collection, messages_collection_name, tokens_collection_name, scores_collection_name
 from src.events import TokenAnalyzedEvent
 from src.telegram import TelegramForwarder
 
@@ -63,7 +63,15 @@ async def save_token_data(event: TokenAnalyzedEvent):
     get_collection(tokens_collection_name).update_one({"contract_address": event.contract_address},
                                                       {"$set": {"score": score}})
 
-    print('message data classified')
+    get_collection(scores_collection_name).insert_one(
+        {
+            "contract_address": event.contract_address,
+            "created_at": datetime.now(),
+            "score": score
+        },
+    )
+
+    print('message data classified and score calculated')
 
 
 async def main():
