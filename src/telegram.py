@@ -1,13 +1,16 @@
 import asyncio
 import os
 import re
+from datetime import timezone, datetime
 
 from events_manager import emit
 from telethon import TelegramClient
 from telethon.errors import RpcCallFailError, PeerIdInvalidError
 from telethon.tl.types import PeerChannel
 
-from src.events import TokenAnalyzedEvent
+from src.crypto import is_token_account, get_symbol
+from src.db import get_collection, tokens_collection_name, messages_collection_name
+from src.events import NewAnalysysMessagesReceivedEvent, AnalysisStarted
 
 
 class TelegramForwarder:
@@ -59,8 +62,7 @@ class TelegramForwarder:
 
         while True:
             try:
-                messages = await self.client.get_messages(source_entity, min_id=last_message_id,
-                                                          limit=None)
+                messages = await self.client.get_messages(source_entity, min_id=last_message_id, limit=None)
             except (RpcCallFailError, PeerIdInvalidError) as e:
                 print(f"Error retrieving messages: {e}")
                 break
@@ -77,10 +79,12 @@ class TelegramForwarder:
 
                 print(f"Message sent from: {sender.username}")
 
-                for contract_address in self.extract_contract_addresses(message.text):
-                    print(f"Contract address: {contract_address}")
+                for token in self.extract_tokens(message.text):
+                    print(f"Token: {token}")
 
-                    await self.client.send_message(analyzer_chat_id, f"/bundle {contract_address}")
+                    emit(AnalysisStarted(self, token, sender.username))
+
+                    await self.client.send_message(analyzer_chat_id, f"/bundle {token[0]}")
 
                     print("Message forwarded")
 
@@ -89,13 +93,36 @@ class TelegramForwarder:
             await asyncio.sleep(5)
 
     @staticmethod
-    def extract_contract_addresses(message):
+    def extract_tokens(message):
         contract_address_regex = r'\b[a-zA-Z0-9]{32,44}\b'
         result = set()
 
         result.update(re.findall(contract_address_regex, message))
 
-        # fixme: verificare che si tratta di un token (richiesta API?)
+        result = set(filter(lambda contract_address: is_token_account(contract_address), result))
+
+        print(f"1{result}")
+
+        result = set(map(lambda address: (address, get_symbol(address)), result))
+
+        print(f"2{result}")
+
+        result = set(filter(lambda token: token[1] is not None, result))
+
+        print(f"3{result}")
+
+        return result
+
+    @staticmethod
+    def extract_matched_symbols(symbol, message):
+        symbol_regex = fr'\b[a-zA-Z0-9]{{{len(symbol)}}}\b'  # fixme: migliorare!!!
+        result = set()
+
+        result.update(re.findall(symbol_regex, message))
+
+        result = set(filter(lambda x: x.upper() == symbol.upper(), result))
+
+        print('symbolsss', result)
 
         return result
 
@@ -153,7 +180,7 @@ class TelegramForwarder:
 
             await asyncio.sleep(5)
 
-    async def handle_analyzer_message(self, analyzer_chat_id):
+    async def handle_analyzer_message(self, analyzer_chat_id, token):
         await self.client.connect()
 
         if not await self.client.is_user_authorized():
@@ -173,6 +200,11 @@ class TelegramForwarder:
         except (RpcCallFailError, PeerIdInvalidError) as e:
             print(f"Error retrieving messages: {e}")
             return
+
+        last_message_time = datetime.now(timezone.utc)
+
+        new_messages = False
+
         while True:
             try:
                 messages = await self.client.get_messages(source_entity, min_id=last_message_id,
@@ -186,6 +218,7 @@ class TelegramForwarder:
                     break
 
                 last_message_id = max(last_message_id, message.id)
+                last_message_time = messages[0].date.replace(tzinfo=timezone.utc)
 
                 if not message.text:
                     continue
@@ -205,8 +238,35 @@ class TelegramForwarder:
 
                 print(f"{sender.username}: analyzer message received")
 
-                for contract_address in self.extract_contract_addresses(message.text):
-                    emit(TokenAnalyzedEvent(self, contract_address, sender.username, message.text))
+                for symbol in self.extract_matched_symbols(token[1], message.raw_text):
+                    new_messages = True
+
+                    print(f"{symbol}: {token[0]}")
+                    get_collection(tokens_collection_name).update_one(
+                        {
+                            "contract_address": token[0]
+                        },
+                        {
+                            "$set": {
+                                "contract_address": token[0],
+                                "symbol": token[1],
+                                "created_at": datetime.now()
+                            }
+                        },
+                        upsert=True
+                    )
+
+                    get_collection(messages_collection_name).insert_one(
+                        {
+                            "message": message.text,
+                            "username": sender.username,
+                            "contract_address": token[0],
+                            "created_at": datetime.now()
+                        },
+                    )
+
+                    print('message data saved')
+                    break
 
                 if not message.buttons:
                     continue
@@ -231,4 +291,11 @@ class TelegramForwarder:
                     if button_pressed:
                         break
 
-            await asyncio.sleep(5)
+            if ((datetime.now(timezone.utc) - last_message_time).total_seconds() / 60) == 5:  # fixme: timeout configurabile
+                return
+
+            if new_messages:
+                emit(NewAnalysysMessagesReceivedEvent(self, token))
+                new_messages = False
+
+            await asyncio.sleep(60)

@@ -9,7 +9,7 @@ from events_manager import on
 
 from src.ai import rank_token
 from src.db import get_collection, messages_collection_name, tokens_collection_name, scores_collection_name
-from src.events import TokenAnalyzedEvent
+from src.events import NewAnalysysMessagesReceivedEvent, AnalysisStarted
 from src.telegram import TelegramForwarder
 
 load_dotenv()
@@ -18,38 +18,16 @@ analyzer_chat_id = int(os.getenv('ANALYZER_CHAT_ID'))
 caller_chat_id = int(os.getenv('CALLER_CHAT_ID'))
 
 
-@on(TokenAnalyzedEvent)
-async def save_token_data(event: TokenAnalyzedEvent):
-    get_collection(tokens_collection_name).update_one(
-        {
-            "contract_address": event.contract_address
-        },
-        {
-            "$set": {
-                "contract_address": event.contract_address,
-                "created_at": datetime.now()
-            }
-        },
-        upsert=True
-    )
+@on(AnalysisStarted)
+async def wait_analysis(event: AnalysisStarted):
+    create_task(event.forwarder.handle_analyzer_message(analyzer_chat_id, event.token)),
 
-    get_collection(messages_collection_name).insert_one(
-        {
-            "message": event.analyzer_message,
-            "username": event.analyzer_username,
-            "contract_address": event.contract_address,
-            "created_at": datetime.now()
-        },
-    )
 
-    print('message data saved')
-
-    documents = get_collection(messages_collection_name).find({"contract_address": event.contract_address})
+@on(NewAnalysysMessagesReceivedEvent)
+async def calculate_score(event: NewAnalysysMessagesReceivedEvent):
+    documents = get_collection(messages_collection_name).find({"contract_address": event.token[0]})
 
     all_documents_string = " | ".join(str(document['message']) for document in documents)
-
-    # Stampa la stringa unica
-    print(f"EVALUATING... | {all_documents_string}")
 
     score = json.loads(rank_token(all_documents_string))['score']
 
@@ -57,15 +35,15 @@ async def save_token_data(event: TokenAnalyzedEvent):
 
     await event.forwarder.send_message(
         caller_chat_id,
-        f"New contract evaluation: {event.contract_address}. Score: {score}"
+        f"{event.token[1]}\n`{event.token[0]}`\n\nScore: {score}",
     )
 
-    get_collection(tokens_collection_name).update_one({"contract_address": event.contract_address},
+    get_collection(tokens_collection_name).update_one({"contract_address": event.token[0]},
                                                       {"$set": {"score": score}})
 
     get_collection(scores_collection_name).insert_one(
         {
-            "contract_address": event.contract_address,
+            "contract_address": event.token[0],
             "created_at": datetime.now(),
             "score": score
         },
@@ -75,14 +53,6 @@ async def save_token_data(event: TokenAnalyzedEvent):
 
 
 async def main():
-    # get_collection('messages').delete_many({})
-    # get_collection('tokens').delete_many({})
-
-    documents = get_collection('messages').find()
-    print("Documenti trovati:")
-    for document in documents:
-        print(document)
-
     forwarder = TelegramForwarder()
 
     choice = "2"
@@ -104,7 +74,6 @@ async def main():
             #     'ultrastarlife',
             # ])),  # genesis gem
             create_task(forwarder.handle_token_source_message(analyzer_chat_id, -1002433791139)),  # analyzer solo
-            create_task(forwarder.handle_analyzer_message(analyzer_chat_id)),
         ]
 
         print("Forwarder starter, waiting messages...")

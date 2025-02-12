@@ -1,9 +1,14 @@
 from events_manager import Event
 
 
-class TokenAnalyzedEvent(Event):
-    def __init__(self, forwarder, contract_address, analyzer_username, analyzer_message):
+class NewAnalysysMessagesReceivedEvent(Event):
+    def __init__(self, forwarder, token):
         self.forwarder = forwarder
-        self.contract_address = contract_address
-        self.analyzer_username = analyzer_username
-        self.analyzer_message = analyzer_message
+        self.token = token
+
+
+class AnalysisStarted(Event):
+    def __init__(self, forwarder, token, caller_username):
+        self.forwarder = forwarder
+        self.token = token
+        self.caller_username = caller_username

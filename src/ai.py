@@ -2,7 +2,7 @@ from openai import OpenAI
 
 
 def rank_token(message):
-    print(f"Evaluating token score, message: {message}")
+    print(f"Evaluating token score")
 
     # Funzione per interagire con ChatGPT
     try:
