@@ -73,7 +73,7 @@ async def main():
             #     'Crypzypotela',
             #     'ultrastarlife',
             # ])),  # genesis gem
-            create_task(forwarder.handle_token_source_message(analyzer_chat_id, -1002433791139)),  # analyzer solo
+            create_task(forwarder.handle_token_source_message(analyzer_chat_id, -1002433791139)),  # ANALLY
         ]
 
         print("Forwarder starter, waiting messages...")
