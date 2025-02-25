@@ -16,6 +16,7 @@ load_dotenv()
 
 analyzer_chat_id = int(os.getenv('ANALYZER_CHAT_ID'))
 caller_chat_id = int(os.getenv('CALLER_CHAT_ID'))
+source_chat_id = int(os.getenv('SOURCE_CHAT_ID'))
 
 
 @on(AnalysisStarted)
@@ -73,7 +74,7 @@ async def main():
             #     'Crypzypotela',
             #     'ultrastarlife',
             # ])),  # genesis gem
-            create_task(forwarder.handle_token_source_message(analyzer_chat_id, -1002433791139)),  # ANALLY
+            create_task(forwarder.handle_token_source_message(analyzer_chat_id, source_chat_id)),
         ]
 
         print("Forwarder starter, waiting messages...")
