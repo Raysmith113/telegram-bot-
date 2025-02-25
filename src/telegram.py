@@ -39,7 +39,7 @@ class TelegramForwarder:
     async def send_message(self, chat_id, message):
         await self.client.send_message(chat_id, message)
 
-    async def handle_token_source_message(self, analyzer_chat_id, source_chat_id, chat_id_filter=None):
+    async def handle_token_source_message(self, analyzer_chat_id, source_chat_id, username_filter=None):
         await self.client.connect()
 
         if not await self.client.is_user_authorized():
@@ -74,7 +74,7 @@ class TelegramForwarder:
                 last_message_id = max(last_message_id, message.id)
 
                 sender = await message.get_sender()
-                if sender and chat_id_filter and sender.username not in chat_id_filter:
+                if sender and username_filter and sender.username not in username_filter:
                     continue
 
                 print(f"Message sent from: {sender.username}")
