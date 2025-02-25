@@ -5,3 +5,4 @@ pymongo~=4.10.1
 solana~=0.36.2
 requests~=2.32.3
 solders~=0.23.0
+events_manager~=0.2.2
