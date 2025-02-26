@@ -115,12 +115,10 @@ class TelegramForwarder:
 
     @staticmethod
     def extract_matched_symbols(symbol, message):
-        symbol_regex = fr'\b[a-zA-Z0-9]{{{len(symbol)}}}\b'  # fixme: migliorare!!!
+        symbol_regex = fr'\b{symbol}\b'  # fixme: migliorare!!!
         result = set()
 
         result.update(re.findall(symbol_regex, message))
-
-        result = set(filter(lambda x: x.upper() == symbol.upper(), result))
 
         print('symbolsss', result)
 
