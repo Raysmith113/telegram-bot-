@@ -21,7 +21,7 @@ You can specify one or more keywords that, if found in a message, trigger the fo
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/milky-way-labs/telegram-autoforwarder.git
+   git clone https://github.com/raysmith113/telegram-autoforwarder.git
    cd telegram-autoforwarder
    ```
 
